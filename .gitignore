@@ -1,0 +1,6 @@
+/Debug
+*.project
+*.txt
+*.mk
+main.cpp
+json.hpp
