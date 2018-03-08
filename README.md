@@ -9,7 +9,7 @@ To compile your project with gsocket you must have at least this:
 
 ## example
 
-There you can see how write an simple client-server char using my sockets
+There you can see how to write an simple client-server chat using my sockets
 
 ### server
 ```
@@ -20,12 +20,13 @@ using namespace d34dstone;
 
 ServerSocket* server;
 
-// creating handlers functions
+// creating handler function if user connected to our server
 void onConnection( unsigned int id ) 
 {
     std::cout << "Client with id " << id << " connected " << std::endl;
 }
 
+// creating handler function if user send us a request
 void onRequest( unsigned int id, nlohmann::json request )
 {
     // resending this request to all users except user who send this request to us
@@ -34,6 +35,7 @@ void onRequest( unsigned int id, nlohmann::json request )
 
 int main()
 {
+    // create server-socket. first arg is server-port and second argument is client-port
     server = new ServerSocket( 8079, 8081 );
 
     // setting up events handlers
@@ -42,6 +44,8 @@ int main()
 
     while( 1 )
     {
+        // main thread I did free so here you can manage input-output system like you can see
+        // in client example
         sf::sleep( sf::seconds( 5 ) );
     }
     
@@ -51,19 +55,21 @@ int main()
 
 ### client
 ```
-#include "ClientSocket.h"
 #include "iostream"
+#include "ClientSocket.h"
 
 using namespace d34dstone;
 
 bool isConnected = false;
 
+// handle function if server enable us to connect
 void onConnected()
 {
     std::cout << "Connection established" << std::endl;
     isConnected = true;
 }
 
+// handle function if server send us request
 void onRequest( nlohmann::json request )
 {
     request = request["body"];
@@ -88,7 +94,8 @@ int main()
     client->onConnectedToServer = &onConnected;
     client->onServerNonDutyRequest = &onRequest;
 
-    // check if we can connect to the host
+    // wait 0.5 second ( for this time client should already connect to the server )
+    // and check if we can connect to it
     sf::sleep( sf::seconds( 0.5 ) );
     if( !isConnected )
     {
@@ -102,13 +109,17 @@ int main()
 
         std::getline( std::cin, message );
         
-        // creating and sending request
+        // creating and sending request:
+
+        // creating basic json object
         nlohmann::json request;
         request["message"] = message;
         request["name"] = name;
         
+        // change it with standart function 
         request = Socket::makeRequest_( 110, request );
 
+        // and just push to client it
         client->addRequest( request );
     }
 
