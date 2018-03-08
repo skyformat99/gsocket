@@ -10,7 +10,7 @@
 #include "stdlib.h" // srand, rand
 #include "time.h" // time
 
-#include "json.hpp"
+#include "json.hpp"	
 
 #include "SFML/Network.hpp"
 #include "SFML/System.hpp"
@@ -59,6 +59,16 @@ namespace d34dstone
 		 *  requests: [ < request[ i ] > ]
 		 */
 		static nlohmann::json makeRequestSet_( std::list< nlohmann::json > requests );
+		
+		/**
+		 * @brief check if current Request set valid
+		 */
+		static bool checkRequestSet_( nlohmann::json request );
+		
+		/**
+		 * @brief check if this request ( or super request ) is valid 
+		 */
+		static bool checkRequest_( nlohmann::json request );
 		
 	protected:
 		unsigned int port_;

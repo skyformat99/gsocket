@@ -23,6 +23,11 @@ d34dstone::ServerSocket::ServerSocket( unsigned int serverPort, unsigned int cli
 d34dstone::ServerSocket::~ServerSocket()
 {
 	this->socket_.unbind();
+	
+	for( auto it : this->connections_ )
+	{
+		delete it;
+	}
 }
 
 void d34dstone::ServerSocket::dataSendingLoop_( d34dstone::ServerSocket* socket )
@@ -39,6 +44,10 @@ void d34dstone::ServerSocket::dataSendingLoop_( d34dstone::ServerSocket* socket 
 			}
 			nlohmann::json requestSet = d34dstone::Socket::makeRequestSet_( connection->requestBuffer_ );
 			requestSet["recipient_id"] = connection->clientId_;
+			
+			#if DATA_SENDING_DEBUG_S
+				std::cout << requestSet.dump() << std::endl;
+			#endif
 			
 			connection->requestBuffer_.clear();
 			socket->sendRequestSet_( connection->ip_, requestSet );
@@ -62,21 +71,64 @@ void d34dstone::ServerSocket::dataWaitingLoop_( d34dstone::ServerSocket* socket 
 		
 		socket->socket_.receive( buffer, sizeof( buffer ), received, sender, senderPort );
 		
-		nlohmann::json request = nlohmann::json::parse( std::string( buffer ) );
+		nlohmann::json requestSet = nlohmann::json::parse( std::string( buffer ) );
 		
-		socket->handleData_( sender, request );
+		#if DATA_WAITING_DEBUG_S
+			std::cout << requestSet << std::endl;
+		#endif 
+		
+		socket->handleData_( sender, requestSet );
 	}
 }
 
-void d34dstone::ServerSocket::sendRequestSet_( sf::IpAddress ip, nlohmann::json requestSet )
+void d34dstone::ServerSocket::handleData_( sf::IpAddress ip, nlohmann::json requestSet )
 {
-	if( requestSet["data_type"] != "request_set" )
+	if( !Socket::checkRequestSet_( requestSet ) )
 	{
-		throw "Invalid data type: expected request_set";
+		#if BAD_REQUEST_REPORT_S
+			std::cout << "Bad request set" << std::endl;
+		#endif
+		return;
 	}
 	
-	std::string dataToSend = requestSet.dump();
-	this->socket_.send( dataToSend.c_str(), dataToSend.size() + 1, ip, this->clientPort_ );
+	int id = -1;
+	try
+	{
+		id = requestSet["client_id"];
+	}
+	catch( nlohmann::detail::type_error err )
+	{
+		std::cout << "Bad request set" << std::endl;
+	}
+	
+	for( nlohmann::json request : requestSet["requests"] )
+	{
+		this->handleRequest_( id, ip, request );
+	}
+}
+
+void d34dstone::ServerSocket::handleRequest_( int id, sf::IpAddress ip, nlohmann::json request )
+{
+	if( !Socket::checkRequest_( request ) )
+	{
+		#if BAD_REQUEST_REPORT_S
+			std::cout << "Bad request" << std::endl;
+		#endif
+		return;
+	}
+	
+	unsigned int requestType = request["request_type"];
+	
+	bool isDuty = ( std::find( this->dutyRequests_.begin(), this->dutyRequests_.end(), requestType ) != this->dutyRequests_.end() );
+	
+	if( isDuty )
+	{
+		this->onDutyRequest_( id, ip, request );
+	}
+	else
+	{
+		this->onNonDutyRequest_( id, ip, request );
+	}
 }
 
 void d34dstone::ServerSocket::onDutyRequest_( int id, sf::IpAddress ip, nlohmann::json request )
@@ -114,10 +166,16 @@ void d34dstone::ServerSocket::onNonDutyRequest_( int id, sf::IpAddress ip, nlohm
 		#endif
 	#endif
 	
-	if( this->onClientNonDutyRequest != nullptr )
+	if( this->onRequest != nullptr )
 	{
-		this->onClientNonDutyRequest( (unsigned int)( id ), request );
+		this->onRequest( (unsigned int)( id ), request );
 	}
+}
+
+void d34dstone::ServerSocket::sendRequestSet_( sf::IpAddress ip, nlohmann::json requestSet )
+{	
+	std::string dataToSend = requestSet.dump();
+	this->socket_.send( dataToSend.c_str(), dataToSend.size() + 1, ip, this->clientPort_ );
 }
 
 void d34dstone::ServerSocket::connectionRequest_( sf::IpAddress ip, nlohmann::json request )
@@ -138,9 +196,9 @@ void d34dstone::ServerSocket::disconnectionRequest_( unsigned int id, sf::IpAddr
 	auto it = std::find( this->connections_.begin(), this->connections_.end(), curConnection );
 	this->connections_.erase( it );
 	
-	if( this->onClientDisconnected != nullptr )
+	if( this->onDisconnection != nullptr )
 	{
-		this->onClientDisconnected( id );
+		this->onDisconnection( id );
 	}
 }
 
@@ -158,7 +216,7 @@ void d34dstone::ServerSocket::acceptConnection_( sf::IpAddress ip, nlohmann::jso
 	this->sendRequestSet_( ip, newRequest );
 }
 
-void d34dstone::ServerSocket::addRequest( unsigned int id, nlohmann::json request )
+void d34dstone::ServerSocket::sendTo( unsigned int id, nlohmann::json request )
 {
 	if( this->idToConnectionMap_.find( id ) == this->idToConnectionMap_.end() ) 
 	{
@@ -168,15 +226,15 @@ void d34dstone::ServerSocket::addRequest( unsigned int id, nlohmann::json reques
 	buffer->insert( buffer->begin(), request );
 }
 
-void d34dstone::ServerSocket::addRequestToAll( nlohmann::json request )
+void d34dstone::ServerSocket::send( nlohmann::json request )
 {
 	for( auto connection : this->connections_ )
 	{
 		connection->requestBuffer_.insert( connection->requestBuffer_.begin(), request );
-	}
+	}	
 }
 
-void d34dstone::ServerSocket::addRequestToAllExcept( unsigned int id, nlohmann::json request )
+void d34dstone::ServerSocket::sendExcept( unsigned int id, nlohmann::json request )
 {
 	for( auto connection : this->connections_ )
 	{
@@ -204,38 +262,9 @@ void d34dstone::ServerSocket::appendUser( unsigned int id, sf::IpAddress ip )
 	this->idToConnectionMap_[ id ] = newUser;
 	this->connections_.insert( this->connections_.begin(), newUser );
 	
-	if( this->onClientConnected != nullptr )
+	if( this->onConnection != nullptr )
 	{
-		this->onClientConnected( id );
-	}
-}
-
-void d34dstone::ServerSocket::handleData_( sf::IpAddress ip, nlohmann::json request )
-{
-	int id = -1;
-	if( request.find("client_id") != request.end() )
-	{
-		id = request["client_id"];
-	}
-	for( nlohmann::json request_ : request["requests"] )
-	{
-		this->handleRequest_( id, ip, request_ );
-	}
-}
-
-void d34dstone::ServerSocket::handleRequest_( int id, sf::IpAddress ip, nlohmann::json request )
-{
-	unsigned int requestType = request["request_type"];
-	
-	bool isDuty = ( std::find( this->dutyRequests_.begin(), this->dutyRequests_.end(), requestType ) != this->dutyRequests_.end() );
-	
-	if( isDuty )
-	{
-		this->onDutyRequest_( id, ip, request );
-	}
-	else
-	{
-		this->onNonDutyRequest_( id, ip, request );
+		this->onConnection( id );
 	}
 }
 

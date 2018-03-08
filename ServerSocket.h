@@ -3,6 +3,9 @@
 
 #include "Socket.h"
 
+#define DATA_SENDING_DEBUG_S false
+#define DATA_WAITING_DEBUG_S false
+
 #define DUTY_REQUEST_DEBUG_S false
 #define SHOW_DUTY_REQUESTS_S false
 #define NON_DUTY_REQUEST_DEBUG_S false
@@ -10,6 +13,8 @@
 
 #define DISPLAY_NEW_CONNECTIONS_S false
 #define DISPLAY_DISCONNECTIONS_S false
+
+#define BAD_REQUEST_REPORT_S true
 
 namespace d34dstone
 {
@@ -65,26 +70,29 @@ namespace d34dstone
 		/**
 		 * @brief push request to client buffer and then it will be sent to client	
 		 */
-		void addRequest( unsigned int clientId, nlohmann::json request );
-		
+		void sendTo( unsigned int clientId, nlohmann::json request );
+	
 		/**
 		 * @brief push request into all clients buffers
 		 */
-		void addRequestToAll( nlohmann::json request );
+		void send( nlohmann::json request );
 		
 		/**
 		 * @brief push request to all clients except client with id clientId
 		 */
-		void addRequestToAllExcept( unsigned int clientId, nlohmann::json request );
+		void sendExcept( unsigned int clientId, nlohmann::json request );
 		
 		/**
 		 * @brief handlers functions
 		 */
-		void ( *onClientConnected )( unsigned int clientId ) = nullptr;
+		// calls when new client-socket connected to server
+		void ( *onConnection )( unsigned int clientId ) = nullptr;
 		
-		void ( *onClientDisconnected )( unsigned int clientId ) = nullptr;
+		// calls when one of clients disconnected
+		void ( *onDisconnection )( unsigned int clientId ) = nullptr;
 		
-		void ( *onClientNonDutyRequest )( unsigned int clientId, nlohmann::json request ) = nullptr;
+		// calls when client socket send non duty request to server
+		void ( *onRequest )( unsigned int clientId, nlohmann::json request ) = nullptr;
 		
 	private:
 		unsigned int serverPort_,

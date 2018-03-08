@@ -14,6 +14,8 @@
 #define CONNECTION_CONFIRM_DEBUG_C false
 #define CONNECTION_REJECT_DEBUG_C false
 
+#define BAD_REQUEST_REPORT_C true
+
 namespace d34dstone
 {
 	/** 
@@ -41,12 +43,12 @@ namespace d34dstone
 	
 		ClientSocket( sf::IpAddress serverIp, unsigned int serverPort, unsigned int clientPort );
 		virtual ~ClientSocket(); // when u delete ClientSocket it send request about disconnection to serverSocket
+	
+		void ( *onRequest )( nlohmann::json data ) = nullptr;
+		void ( *onConnected )() = nullptr;
+		void ( *onKicked )() = nullptr;
 		
-		void ( *onServerNonDutyRequest )( nlohmann::json data ) = nullptr;
-		void ( *onConnectedToServer )() = nullptr;
-		void ( *onConnectionReject )() = nullptr;
-		
-		void addRequest( nlohmann::json request );
+		void send( nlohmann::json request );
 		
 	private:
 		unsigned int serverPort_,
