@@ -15,6 +15,8 @@
 #include "SFML/Network.hpp"
 #include "SFML/System.hpp"
 
+#define GEORGE_HAVE_NOT_GIRLFRIEND true
+
 namespace d34dstone
 {
 	/** 

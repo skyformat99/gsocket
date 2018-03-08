@@ -2,127 +2,100 @@
 Comfortable socket on sfml C++11
 
 ## setting up
-To compile your project with gsocket you must have at least this:
-- nlohmann json 
-- at least 2.3 SFML
-- C++11 standart enable
+To compile this project you should have at least:
+- C++ 11 standart enable
+- [json](https://github.com/nlohmann/json)
+- [SFML 2.3+](https://github.com/SFML/SFML)
+
 
 ## example
 
-There you can see how to write an simple client-server chat using my sockets
+There you can see how to write an easyest client-server application using my sockets.
+This application every second send json-request to server and server parse it.
 
 ### server
-```
+```cpp
 #include "iostream"
+#include "string"
+
+#include "json.hpp"
+
 #include "ServerSocket.h"
 
-using namespace d34dstone;
+using namespace std;
 
-ServerSocket* server;
-
-// creating handler function if user connected to our server
-void onConnection( unsigned int id ) 
-{
-    std::cout << "Client with id " << id << " connected " << std::endl;
-}
-
-// creating handler function if user send us a request
+// making handler function
 void onRequest( unsigned int id, nlohmann::json request )
 {
-    // resending this request to all users except user who send this request to us
-    server->addRequestToAllExcept( id, request );
+	for( auto human : request["people"] )
+	{
+		std::string name = human["name"],
+					style = human["style"];
+					
+		std::cout << "Name: " << name << ", Style: " << style << std::endl;
+	}
+	std::cout << std::endl;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    // create server-socket. first arg is server-port and second argument is client-port
-    server = new ServerSocket( 8079, 8081 );
-
-    // setting up events handlers
-    server->onClientConnected = &onConnection;
-    server->onClientNonDutyRequest = &onRequest;
-
-    while( 1 )
-    {
-        // main thread I did free so here you can manage input-output system like you can see
-        // in client example
-        sf::sleep( sf::seconds( 5 ) );
-    }
-    
-    return 0;
+	d34dstone::ServerSocket *server = new d34dstone::ServerSocket( 8079, 8081 );
+	server->onRequest = &onRequest;
+	
+	// another infinity cycle
+	while( GEORGE_HAVE_NOT_GIRLFRIEND )
+	{
+		sf::sleep( sf::seconds( 1 ) );
+	}
 }
 ```
 
 ### client
-```
+```cpp
 #include "iostream"
+#include "string"
+
+#include "json.hpp"
+
 #include "ClientSocket.h"
 
-using namespace d34dstone;
+using namespace std;
 
-bool isConnected = false;
-
-// handle function if server enable us to connect
-void onConnected()
+int main(int argc, char **argv)
 {
-    std::cout << "Connection established" << std::endl;
-    isConnected = true;
-}
-
-// handle function if server send us request
-void onRequest( nlohmann::json request )
-{
-    request = request["body"];
-    std::cout << request["name"] << ": " << request["message"] << std::endl;
-}
-
-int main()
-{
-    std::string ip;
-    std::string name;
-
-    std::cout << "Enter server ip: ";
-    std::cin >> ip;
-
-    std::cout << "Enter your name: ";
-    std::cin >> name;
-
-    // creating client socket with host ip, servers port and clients port
-    ClientSocket *client = new ClientSocket( ip, 8079, 8081 );
-
-    // setting up the handlers
-    client->onConnectedToServer = &onConnected;
-    client->onServerNonDutyRequest = &onRequest;
-
-    // wait 0.5 second ( for this time client should already connect to the server )
-    // and check if we can connect to it
-    sf::sleep( sf::seconds( 0.5 ) );
-    if( !isConnected )
-    {
-        std::cout << "Can't connected to the server" << std::endl;
-        return 0;
-    }
-
-    while( 1 )
-    {
-        std::string message;
-
-        std::getline( std::cin, message );
-        
-        // creating and sending request:
-
-        // creating basic json object
-        nlohmann::json request;
-        request["message"] = message;
-        request["name"] = name;
-        
-        // change it with standart function 
-        request = Socket::makeRequest_( 110, request );
-
-        // and just push to client it
-        client->addRequest( request );
-    }
-
-    return 0;
+	std::string ip;
+	std::cout << "enter server ip: ";
+	std::getline( std::cin, ip );
+	
+	// creating client-socket entering ip, server-port and client-port
+ 	d34dstone::ClientSocket *client = new d34dstone::ClientSocket( ip, 8079, 8081 );
+	
+	while( GEORGE_HAVE_NOT_GIRLFRIEND )
+	{
+		// creating request
+		nlohmann::json request =
+		{{
+				"people",
+				{
+					{
+						{ "name", "George" },
+						{ "style", "Wild"  }
+					},
+					{
+						{ "name", "Tatiana" },
+						{ "style", "Sweet"  }
+					}
+				}
+		}};
+		
+		// making request valid. First argument is type of request, you can bind what you want
+		// except 101-103, 201-202 -- this is the duty requests
+		request = d34dstone::Socket::makeRequest_( 1430, request );
+		
+		// send to server
+		client->send( request );
+		
+		sf::sleep( sf::seconds( 1 ) );
+	}
 }
 ```
