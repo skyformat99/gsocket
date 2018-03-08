@@ -13,43 +13,6 @@ To compile this project you should have at least:
 There you can see how to write an easyest client-server application using my sockets.
 This application every second send json-request to server and server parse it.
 
-### server
-```cpp
-#include "iostream"
-#include "string"
-
-#include "json.hpp"
-
-#include "ServerSocket.h"
-
-using namespace std;
-
-// making handler function
-void onRequest( unsigned int id, nlohmann::json request )
-{
-	for( auto human : request["people"] )
-	{
-		std::string name = human["name"],
-					style = human["style"];
-					
-		std::cout << "Name: " << name << ", Style: " << style << std::endl;
-	}
-	std::cout << std::endl;
-}
-
-int main(int argc, char **argv)
-{
-	d34dstone::ServerSocket *server = new d34dstone::ServerSocket( 8079, 8081 );
-	server->onRequest = &onRequest;
-	
-	// another infinity cycle
-	while( GEORGE_HAVE_NOT_GIRLFRIEND )
-	{
-		sf::sleep( sf::seconds( 1 ) );
-	}
-}
-```
-
 ### client
 ```cpp
 #include "iostream"
@@ -95,6 +58,43 @@ int main(int argc, char **argv)
 		// send to server
 		client->send( request );
 		
+		sf::sleep( sf::seconds( 1 ) );
+	}
+}
+```
+
+### server
+```cpp
+#include "iostream"
+#include "string"
+
+#include "json.hpp"
+
+#include "ServerSocket.h"
+
+using namespace std;
+
+// making handler function
+void onRequest( unsigned int id, nlohmann::json request )
+{
+	for( auto human : request["people"] )
+	{
+		std::string name = human["name"],
+					style = human["style"];
+					
+		std::cout << "Name: " << name << ", Style: " << style << std::endl;
+	}
+	std::cout << std::endl;
+}
+
+int main(int argc, char **argv)
+{
+	d34dstone::ServerSocket *server = new d34dstone::ServerSocket( 8079, 8081 );
+	server->onRequest = &onRequest;
+	
+	// another infinity cycle
+	while( GEORGE_HAVE_NOT_GIRLFRIEND )
+	{
 		sf::sleep( sf::seconds( 1 ) );
 	}
 }
